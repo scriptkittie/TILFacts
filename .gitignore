@@ -1,0 +1,10 @@
+# Built apps: GitHub builds these for each release (.github/workflows/release.yml)
+/TILFacts.exe
+/TILFacts-linux-*.tar.gz
+/dist/
+
+# Build and test leftovers
+/app/tilfacts
+/app/*.test
+__pycache__/
+*.log

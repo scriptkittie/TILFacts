@@ -1,0 +1,97 @@
+# Builds TILFacts for Windows and Linux and attaches them to a GitHub Release.
+#
+# Runs when you publish a release on GitHub (Releases > Draft a new release),
+# when you push a version tag (git tag v2.0.0 && git push origin v2.0.0),
+# or by hand from the Actions tab ("Run workflow").
+name: Release
+
+on:
+  release:
+    types: [published]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to release, e.g. v2.0.1"
+        required: true
+
+permissions:
+  contents: write   # needed to create the release and upload the downloads
+
+env:
+  TAG: ${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+
+# A release made on the website also pushes its tag; run once per tag at a time.
+concurrency:
+  group: release-${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: app/go.mod
+          cache: false   # no dependencies to cache
+
+      - name: Check the code
+        working-directory: app
+        run: |
+          test -z "$(gofmt -l .)" || { gofmt -l .; echo "Run gofmt -w on the files above."; exit 1; }
+          go vet ./...
+
+      - name: Build for Windows
+        working-directory: app
+        run: |
+          mkdir -p ../dist
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -H=windowsgui" -o ../dist/TILFacts.exe
+
+      - name: Build for Linux
+        working-directory: app
+        run: |
+          for arch in amd64 arm64; do
+            name=$([ "$arch" = amd64 ] && echo x64 || echo arm64)
+            pkg=$(mktemp -d)/TILFacts
+            mkdir -p "$pkg"
+            GOOS=linux GOARCH=$arch go build -trimpath -ldflags "-s -w" -o "$pkg/TILFacts"
+            cp linux/* "$pkg/"
+            chmod +x "$pkg/TILFacts" "$pkg/install.sh"
+            tar -C "$(dirname "$pkg")" --owner=0 --group=0 -czf "../dist/TILFacts-linux-$name.tar.gz" TILFacts
+          done
+          ls -l ../dist
+
+      - name: Publish the downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          ## Download
+
+          - **Windows:** download **TILFacts.exe** and double-click it. The first time, Windows may say "Windows protected your PC": click **More info**, then **Run anyway**.
+          - **Linux:** download **TILFacts-linux-x64.tar.gz** (most PCs) or **TILFacts-linux-arm64.tar.gz** (Raspberry Pi and other ARM computers), extract it, and run `./install.sh` once to add TILFacts to your apps menu.
+
+          Your browser opens with fresh facts from r/todayilearned. Close the tab when you're done and TILFacts closes itself.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # Made on the website (or already published): add the downloads,
+            # and put the download steps above whatever notes it has.
+            gh release upload "$TAG" dist/* --clobber
+            body=$(gh release view "$TAG" --json body --jq .body)
+            case "$body" in
+              *"## Download"*) ;;
+              *) printf '%s\n\n%s\n' "$(cat notes.md)" "$body" > full.md
+                 gh release edit "$TAG" --notes-file full.md ;;
+            esac
+          else
+            gh release create "$TAG" dist/* \
+              --title "TILFacts $TAG" \
+              --notes-file notes.md \
+              --verify-tag
+          fi

@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TILFacts</title>
+<meta name="description" content="Today I learned, condensed. Fresh facts from r/todayilearned, with the TIL taken out.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Concept: "soylent TIL". Reddit's TIL posts, condensed into plain facts and
+   served as a ration. The left panel is a nutrition-facts label for the
+   batch you're reading: how many facts, how long they take, where they
+   came from. Everything else stays quiet so the facts are the meal. */
+:root {
+  --bg: #e6e9e7;          /* page */
+  --page-ink: #000000;    /* text on page */
+  --page-muted: #555c58;
+  --page-hair: #c3c9c5;
+  --paper: #ffffff;       /* the label */
+  --ink: #000000;         /* text on label */
+  --muted: #555c58;
+  --hair: #000000;        /* rules on label */
+  --accent: #1f3fd1;
+  --accent-ink: #ffffff;
+  --mark: #ffe45c;
+  --mark-ink: #000000;
+  --sel: #000000;         /* selected-fact bar */
+
+  --font: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --fact-width: 100;      /* Archivo width axis for the facts */
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #15181a; --page-ink: #eef1ef; --page-muted: #98a19c; --page-hair: #30363a;
+    --paper: #1f2326; --ink: #eef1ef; --muted: #98a19c; --hair: #eef1ef;
+    --accent: #93a6ff; --accent-ink: #0c1230; --mark: #5c4f00; --mark-ink: #fff6c2; --sel: #eef1ef;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="night"] {
+  --bg: #15181a; --page-ink: #eef1ef; --page-muted: #98a19c; --page-hair: #30363a;
+  --paper: #1f2326; --ink: #eef1ef; --muted: #98a19c; --hair: #eef1ef;
+  --accent: #93a6ff; --accent-ink: #0c1230; --mark: #5c4f00; --mark-ink: #fff6c2; --sel: #eef1ef;
+  color-scheme: dark;
+}
+/* Carton: the label printed on a blue drink carton */
+:root[data-theme="carton"] {
+  --bg: #2340cf; --page-ink: #ffffff; --page-muted: #c6d0ff; --page-hair: #4560e0;
+  --paper: #ffffff; --ink: #0b1a66; --muted: #4a5590; --hair: #0b1a66;
+  --accent: #ffffff; --accent-ink: #2340cf; --mark: #ffe45c; --mark-ink: #0b1a66; --sel: #ffe45c;
+  color-scheme: dark;
+}
+:root[data-theme="carton"] .feed a.src, :root[data-theme="carton"] .act { color: #ffffff; }
+/* Oat: warm, low-contrast, for evening reading */
+:root[data-theme="oat"] {
+  --bg: #d9d2c3; --page-ink: #2b2620; --page-muted: #6b6255; --page-hair: #bfb6a4;
+  --paper: #f1ece1; --ink: #2b2620; --muted: #6b6255; --hair: #2b2620;
+  --accent: #6d4b1f; --accent-ink: #f1ece1; --mark: #f0d27a; --mark-ink: #2b2620; --sel: #6d4b1f;
+  color-scheme: light;
+}
+/* Terminal: a nod to the 2015 command-line TILFacts */
+:root[data-theme="terminal"] {
+  --bg: #040904; --page-ink: #b8f5b2; --page-muted: #62a65c; --page-hair: #173019;
+  --paper: #081208; --ink: #b8f5b2; --muted: #62a65c; --hair: #3ddc68;
+  --accent: #3ddc68; --accent-ink: #031007; --mark: #3ddc68; --mark-ink: #031007; --sel: #3ddc68;
+  --font: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+:root[data-theme="terminal"] .fact-text::before { content: "> "; color: var(--accent); }
+:root[data-theme="terminal"] .fact-text { font-size: 17px; letter-spacing: 0; }
+:root[data-theme="terminal"] .nf-title { font-size: 34px; letter-spacing: -.03em; }
+:root[data-theme="terminal"] .brand h1 { font-size: 30px; letter-spacing: -.03em; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--page-ink);
+  font: 400 16px/1.5 var(--font);
+  font-variant-numeric: tabular-nums;
+  min-height: 100vh;
+  padding: max(20px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(32px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .3s ease, color .3s ease;
+}
+button, select, input { font: inherit; color: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 1080px; margin: 0 auto; }
+
+/* ---- top bar */
+.top {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 20px;
+  flex-wrap: wrap; padding-bottom: 18px; margin-bottom: 28px;
+  border-bottom: 1px solid var(--page-hair);
+}
+.brand h1 {
+  margin: 0; font-weight: 900; font-size: 40px; line-height: .95;
+  font-stretch: 62%; font-variation-settings: "wdth" 62; letter-spacing: -.01em;
+}
+.brand p { margin: 6px 0 0; color: var(--page-muted); font-size: 15px; }
+.tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.search {
+  position: relative; display: flex; align-items: center;
+}
+.search svg { position: absolute; left: 11px; width: 16px; height: 16px; color: var(--page-muted); pointer-events: none; }
+.search input {
+  height: 38px; width: 210px; padding: 0 12px 0 34px;
+  border: 1px solid var(--page-hair); border-radius: 6px; background: transparent; color: var(--page-ink);
+}
+.search input::placeholder { color: var(--page-muted); }
+.search input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px;
+  border: 1px solid var(--page-hair); border-radius: 6px; background: transparent;
+  color: var(--page-ink); cursor: pointer; font-size: 15px; white-space: nowrap; text-decoration: none;
+}
+.btn:hover { border-color: var(--page-ink); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn .count {
+  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; font-size: 13px; font-weight: 600;
+  display: inline-grid; place-items: center; background: var(--page-ink); color: var(--bg);
+}
+.theme-select {
+  height: 38px; padding: 0 30px 0 12px; border: 1px solid var(--page-hair); border-radius: 6px;
+  background: transparent; color: var(--page-ink); cursor: pointer; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 16px) 17px, calc(100% - 11px) 17px; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.theme-select option { color: #000; background: #fff; }
+
+/* ---- layout */
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 48px; align-items: start; }
+
+/* ---- the nutrition label: the one loud thing on the page */
+.nf {
+  position: sticky; top: 20px;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--hair); padding: 6px 8px 8px;
+  transition: background-color .3s ease, color .3s ease;
+}
+.nf-title {
+  margin: 0; font-weight: 900; font-size: 46px; line-height: 1;
+  font-stretch: 62%; font-variation-settings: "wdth" 62; letter-spacing: -.005em;
+  white-space: nowrap; overflow: hidden;
+}
+.nf-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 2px 0; border-top: 1px solid var(--hair); font-size: 15px; }
+.nf-row.first { border-top: 0; }
+.nf-row b { font-weight: 800; }
+.nf-row .dv { font-weight: 800; }
+.nf-row.sub { padding-left: 16px; }
+.nf-bar-xl { height: 11px; background: var(--hair); margin: 3px 0 2px; }
+.nf-bar-l { height: 6px; background: var(--hair); margin: 2px 0; }
+.nf-serving { font-size: 18px; font-weight: 800; padding: 1px 0 3px; }
+.nf-big { display: flex; justify-content: space-between; align-items: flex-end; padding: 0 0 2px; }
+.nf-big .lbl { font-size: 15px; font-weight: 800; line-height: 1.1; }
+.nf-big .num { font-weight: 900; font-size: 42px; line-height: .9; font-stretch: 75%; font-variation-settings: "wdth" 75; }
+.nf-dvhead { text-align: right; font-size: 13px; font-weight: 800; padding: 3px 0 1px; }
+.nf select {
+  border: 0; border-bottom: 1px dashed var(--muted); background: transparent; color: var(--ink);
+  font-weight: 800; padding: 0 16px 0 0; cursor: pointer; appearance: none; text-align: right;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 7px) 55%, calc(100% - 2px) 55%; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.nf select option { color: #000; background: #fff; }
+.nf-ingredients { font-size: 13px; line-height: 1.45; padding-top: 5px; border-top: 1px solid var(--hair); margin-top: 2px; }
+.nf-ingredients b { font-weight: 800; }
+.nf-foot { font-size: 12px; line-height: 1.4; color: var(--muted); padding-top: 5px; margin-top: 4px; border-top: 6px solid var(--hair); }
+.nf-foot p { margin: 0 0 4px; }
+.nf-foot kbd { font: 600 11px/1 var(--font-mono); border: 1px solid var(--muted); border-radius: 3px; padding: 1px 4px; color: var(--ink); }
+.nf-toggle { display: none; }
+
+/* ---- feed */
+.feed-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.feed-head h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--page-muted); }
+.feed-head .when { font-size: 14px; color: var(--page-muted); }
+.facts { list-style: none; margin: 0; padding: 0; }
+.fact {
+  position: relative; padding: 18px 0 16px 22px; border-top: 1px solid var(--page-hair);
+  outline: none;
+}
+.fact:first-child { border-top: 0; }
+.fact::before {
+  content: ""; position: absolute; left: 0; top: 20px; bottom: 18px; width: 4px;
+  background: var(--sel); transform: scaleY(0); transform-origin: top; transition: transform .18s ease;
+}
+.fact.is-selected::before { transform: scaleY(1); }
+.fact-text {
+  margin: 0; font-size: 21px; line-height: 1.38; font-weight: 450; letter-spacing: -.005em;
+  font-variation-settings: "wdth" var(--fact-width); max-width: 64ch; text-wrap: pretty;
+}
+.fact-text mark { background: var(--mark); color: var(--mark-ink); padding: 0 1px; border-radius: 2px; }
+.fact-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 9px; font-size: 14px; color: var(--page-muted); }
+.feed a.src { color: var(--accent); text-decoration: none; font-weight: 500; }
+.feed a.src:hover { text-decoration: underline; }
+.fact-actions { display: flex; gap: 4px; margin-left: auto; }
+.act {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px;
+  border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--page-muted);
+  cursor: pointer; font-size: 14px; text-decoration: none;
+}
+.act:hover { color: var(--page-ink); border-color: var(--page-hair); }
+.act svg { width: 15px; height: 15px; }
+.act[aria-pressed="true"] { color: var(--page-ink); font-weight: 600; }
+.act[aria-pressed="true"] svg { fill: currentColor; }
+
+/* loading + states */
+.skel { padding: 20px 0 18px 22px; border-top: 1px solid var(--page-hair); }
+.skel:first-child { border-top: 0; }
+.skel i { display: block; height: 16px; border-radius: 3px; background: var(--page-hair); margin: 8px 0; opacity: .7; animation: pulse 1.4s ease-in-out infinite; }
+.skel i:nth-child(2) { width: 72%; }
+.skel i:nth-child(3) { width: 30%; height: 11px; margin-top: 14px; }
+@keyframes pulse { 50% { opacity: .35; } }
+.state { padding: 40px 0 40px 22px; max-width: 54ch; }
+.state h3 { margin: 0 0 6px; font-size: 22px; font-weight: 800; }
+.state p { margin: 0 0 16px; color: var(--page-muted); }
+
+/* the 2015 prompt, kept */
+.close-q {
+  margin-top: 8px; padding: 26px 0 0 22px; border-top: 6px solid var(--page-ink);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px;
+}
+.close-q p { margin: 0; font-size: 21px; font-weight: 800; font-stretch: 75%; font-variation-settings: "wdth" 75; margin-right: auto; }
+.close-q .btns { display: flex; gap: 8px; }
+
+/* ---- saved drawer */
+dialog.drawer {
+  margin: 0 0 0 auto; height: 100%; max-height: 100%; width: min(460px, 100%); max-width: 100%;
+  border: 0; padding: 0; background: var(--paper); color: var(--ink);
+  border-left: 1px solid var(--hair);
+}
+dialog.drawer::backdrop { background: rgba(0,0,0,.35); }
+dialog.drawer[open] { animation: slide .22s ease-out; }
+@keyframes slide { from { transform: translateX(24px); opacity: 0; } }
+.drawer-in { display: flex; flex-direction: column; height: 100%; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px 10px; border-bottom: 6px solid var(--hair); }
+.drawer-head h2 { margin: 0; font-size: 34px; font-weight: 900; font-stretch: 62%; font-variation-settings: "wdth" 62; line-height: 1; }
+.drawer .btn, .drawer .act { color: var(--ink); border-color: transparent; }
+.drawer .btn:hover, .drawer .act:hover { border-color: var(--muted); }
+.drawer-list { list-style: none; margin: 0; padding: 0 18px; overflow-y: auto; flex: 1; }
+.drawer-list li { padding: 14px 0; border-bottom: 1px solid color-mix(in srgb, var(--hair) 25%, transparent); }
+.drawer-list p { margin: 0 0 6px; font-size: 17px; line-height: 1.4; }
+.drawer-list .row { display: flex; gap: 4px; align-items: center; font-size: 13px; color: var(--muted); }
+.drawer-list .row a.src { color: var(--accent); text-decoration: none; margin-right: auto; }
+:root[data-theme="carton"] .drawer-list .row a.src { color: #2340cf; }
+.drawer-empty { padding: 24px 18px; color: var(--muted); }
+.drawer-foot { padding: 12px 18px; border-top: 1px solid var(--hair); display: flex; gap: 8px; }
+.drawer-foot .btn { border-color: var(--muted); }
+
+/* toast */
+.toast {
+  position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 12px);
+  background: var(--page-ink); color: var(--bg); padding: 10px 16px; border-radius: 6px; font-size: 15px; font-weight: 500;
+  opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 50;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.credit { margin-top: 48px; font-size: 13px; color: var(--page-muted); padding-left: 22px; }
+.credit a { color: inherit; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---- responsive */
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .nf { position: static; max-width: 420px; }
+  .nf-toggle {
+    display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 8px;
+    background: none; border: 0; border-top: 1px solid var(--hair); padding: 6px 0 2px; color: var(--ink);
+    cursor: pointer; font-size: 14px; font-weight: 700;
+  }
+  .nf.collapsed .nf-more { display: none; }
+}
+@media (max-width: 560px) {
+  .brand h1 { font-size: 34px; }
+  .tools { width: 100%; }
+  .search { flex: 1 1 100%; }
+  .search input { width: 100%; }
+  .fact { padding-left: 16px; }
+  .fact-text { font-size: 19px; }
+  .fact-actions { margin-left: -9px; width: 100%; }
+  .close-q, .state, .credit, .skel { padding-left: 16px; }
+  .nf { max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>TILFacts</h1>
+      <p>Today I learned, condensed.</p>
+    </div>
+    <div class="tools">
+      <label class="search">
+        <span class="sr-only">Search these facts</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Search these facts" autocomplete="off">
+      </label>
+      <button class="btn" id="savedBtn" type="button" aria-haspopup="dialog">Saved <span class="count" id="savedCount">0</span></button>
+      <label class="sr-only" for="theme">Theme</label>
+      <select class="theme-select" id="theme" title="Theme (T)">
+        <option value="auto">Auto</option>
+        <option value="label">Label</option>
+        <option value="night">Night</option>
+        <option value="carton">Carton</option>
+        <option value="oat">Oat</option>
+        <option value="terminal">Terminal</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="nf" id="nf" aria-label="About this ration">
+      <h2 class="nf-title">Nutrition Facts</h2>
+      <div class="nf-row first"><span id="nfServings">25 servings per ration</span></div>
+      <div class="nf-serving nf-row first" style="justify-content:space-between">
+        <span>Serving size</span>
+        <label><span class="sr-only">Facts per ration</span>
+          <select id="limit" title="How many facts to load at a time">
+            <option value="10">10 facts</option>
+            <option value="25" selected>25 facts</option>
+            <option value="50">50 facts</option>
+            <option value="100">100 facts</option>
+          </select>
+        </label>
+      </div>
+      <div class="nf-row" style="font-weight:800">
+        <span>Source</span>
+        <label><span class="sr-only">Which posts</span>
+          <select id="sort" title="Which posts to read">
+            <option value="new">Newest</option>
+            <option value="hot">Hot right now</option>
+            <option value="rising">Rising</option>
+            <option value="top-day">Top today</option>
+            <option value="top-week">Top this week</option>
+            <option value="top-month">Top this month</option>
+            <option value="top-all">Top of all time</option>
+          </select>
+        </label>
+      </div>
+      <div class="nf-bar-xl"></div>
+      <button class="nf-toggle" id="nfToggle" type="button" aria-expanded="false" aria-controls="nfMore"><span>Show the full label</span><span aria-hidden="true">+</span></button>
+      <div class="nf-more" id="nfMore">
+        <div class="nf-big"><span class="lbl">Reading<br>time</span><span class="num" id="nfMinutes">0 min</span></div>
+        <div class="nf-bar-l"></div>
+        <div class="nf-dvhead">% of ration</div>
+        <div class="nf-row"><span><b>Facts</b> <span id="nfFacts">0</span></span></div>
+        <div class="nf-row sub"><span>Saved</span><span class="dv" id="nfSavedPct">0%</span></div>
+        <div class="nf-row sub"><span>Wikipedia-sourced</span><span class="dv" id="nfWikiPct">0%</span></div>
+        <div class="nf-row sub"><span>With numbers in them</span><span class="dv" id="nfNumPct">0%</span></div>
+        <div class="nf-row"><span><b>Words</b> <span id="nfWords">0</span></span><span id="nfAvg">0 per fact</span></div>
+        <div class="nf-row"><span><b>Posted by</b></span><span id="nfVotes">0 people</span></div>
+        <div class="nf-row"><span><b>Freshest</b></span><span id="nfFresh">–</span></div>
+        <div class="nf-row"><span><b>Calories</b> 0</span><span class="dv">0%</span></div>
+        <div class="nf-bar-l"></div>
+        <div class="nf-ingredients" id="nfIngredients"><b>Ingredients:</b> waiting for the first ration.</div>
+        <div class="nf-foot">
+          <p>Facts come from r/todayilearned with the “TIL” taken out. They are what Reddit posted, not checked by TILFacts, so follow the source before you repeat one at dinner.</p>
+          <p><kbd>J</kbd>/<kbd>K</kbd> move &nbsp;<kbd>S</kbd> save &nbsp;<kbd>O</kbd> source &nbsp;<kbd>C</kbd> thread &nbsp;<kbd>Y</kbd> copy &nbsp;<kbd>M</kbd> more &nbsp;<kbd>R</kbd> refresh &nbsp;<kbd>/</kbd> search &nbsp;<kbd>T</kbd> theme</p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="feed" id="feed">
+      <div class="feed-head">
+        <h2 id="feedTitle">Newest facts</h2>
+        <span class="when" id="when"></span>
+      </div>
+      <div id="status" aria-live="polite"></div>
+      <ul class="facts" id="facts"></ul>
+      <div class="close-q" id="closeQ" hidden>
+        <p id="closeText">Would you like to close?</p>
+        <div class="btns" id="closeBtns">
+          <button class="btn primary" id="moreBtn" type="button">No, serve more</button>
+          <button class="btn" id="doneBtn" type="button">Yes</button>
+          <button class="btn primary" id="againBtn" type="button" hidden>Serve a fresh ration</button>
+        </div>
+      </div>
+      <p class="credit">Posts from <a href="https://www.reddit.com/r/todayilearned/" target="_blank" rel="noopener">r/todayilearned</a> on Reddit. TILFacts was first written on June 30, 2015 as a Python script that printed them in a terminal.</p>
+    </main>
+  </div>
+</div>
+
+<dialog class="drawer" id="drawer" aria-labelledby="drawerTitle">
+  <div class="drawer-in">
+    <div class="drawer-head">
+      <h2 id="drawerTitle">Saved facts</h2>
+      <button class="btn" id="drawerClose" type="button">Close</button>
+    </div>
+    <ul class="drawer-list" id="savedList"></ul>
+    <div class="drawer-empty" id="savedEmpty">Nothing saved yet. Press <b>Save</b> on a fact, or <b>S</b> on the selected one, to keep it here.</div>
+    <div class="drawer-foot" id="savedFoot">
+      <button class="btn" id="copyAll" type="button">Copy all</button>
+      <button class="btn" id="clearAll" type="button">Remove all</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const moreBtn = $("moreBtn"), doneBtn = $("doneBtn"), againBtn = $("againBtn");
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem("tilfacts." + key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem("tilfacts." + key, JSON.stringify(value)); } catch {} },
+  };
+
+  const SORTS = {
+    "new":       { path: "new",    label: "Newest facts" },
+    "hot":       { path: "hot",    label: "Hot right now" },
+    "rising":    { path: "rising", label: "Rising facts" },
+    "top-day":   { path: "top", t: "day",   label: "Top facts today" },
+    "top-week":  { path: "top", t: "week",  label: "Top facts this week" },
+    "top-month": { path: "top", t: "month", label: "Top facts this month" },
+    "top-all":   { path: "top", t: "all",   label: "Top facts of all time" },
+  };
+  const THEMES = ["auto", "label", "night", "carton", "oat", "terminal"];
+
+  const state = {
+    sort: store.get("sort", "new"),
+    limit: store.get("limit", 25),
+    theme: store.get("theme", "auto"),
+    saved: store.get("saved", []),
+    items: [],
+    pool: [],     // fetched but not served yet
+    seen: new Set(),
+    after: null,
+    loading: false,
+    query: "",
+    sel: -1,
+    loadedAt: null,
+  };
+  // facts saved by earlier versions used ids without Reddit's "t3_" prefix
+  state.saved = state.saved.map(f => /^t3_/.test(f.id) ? f : { ...f, id: "t3_" + f.id });
+  if (!SORTS[state.sort]) state.sort = "new";
+  if (![10, 25, 50, 100].includes(+state.limit)) state.limit = 25;
+
+  /* ---------- the condenser: "TIL that X" -> "X." ---------- */
+  function condense(title) {
+    let t = String(title || "").replace(/\s+/g, " ").trim();
+    // leading tags like [Video] or (2019)
+    t = t.replace(/^(\[[^\]]{1,24}\]\s*)+/, "");
+    // "TIL", "TIL:", "TIL -", "Today I learned", "TIL,", "Til that"
+    t = t.replace(/^(TIL|T\.I\.L\.?|today\s+i\s+learn(ed|t))\b\s*[:,\-–—]?\s*/i, "");
+    // the connective that follows
+    t = t.replace(/^(that|about|of)\s+(?=\S)/i, "");
+    t = t.replace(/^[:,\-–—]\s*/, "");
+    t = t.replace(/\s*\((via|source)[^)]*\)\s*$/i, "");
+    if (!t) return String(title || "").trim();
+    // capitalize, unless it starts with a deliberately lower-case word like "iPhone" or "eBay"
+    if (!/^[a-z]+[A-Z]/.test(t)) t = t.charAt(0).toUpperCase() + t.slice(1);
+    if (!/[.!?…"”'’)\]]$/.test(t)) t += ".";
+    return t;
+  }
+
+  /* ---------- data ---------- */
+  // The TILFacts app serves this page and reads Reddit for it at /api/listing
+  // (Reddit closed its anonymous .json feeds in May 2026, and a page opened
+  // from a file can't read the RSS feed). Reddit refuses readers after a few
+  // quick requests, so ask for the most it allows (100) at once and serve
+  // rations from that pool.
+  const SERVED = location.protocol === "http:";
+  const FETCH_SIZE = 100;
+
+  function listingUrl(after) {
+    const s = SORTS[state.sort];
+    const p = new URLSearchParams({ sort: s.path, limit: String(FETCH_SIZE) });
+    if (s.t) p.set("t", s.t);
+    if (after) p.set("after", after);
+    return "/api/listing?" + p;
+  }
+
+  async function getListing(after) {
+    if (!SERVED) throw Object.assign(new Error("file"), { kind: "file" });
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 45000);
+    let res;
+    try { res = await fetch(listingUrl(after), { signal: ctl.signal }); }
+    catch { throw Object.assign(new Error("launcher"), { kind: "launcher" }); }
+    finally { clearTimeout(timer); }
+    if (res.status === 429) throw Object.assign(new Error("rate"), { kind: "rate" });
+    if (!res.ok) {
+      let msg = ""; try { msg = (await res.json()).error || ""; } catch {}
+      throw Object.assign(new Error(msg || "HTTP " + res.status), { kind: "reddit", detail: msg });
+    }
+    return res.json();
+  }
+
+  const toFact = (p) => ({
+    id: p.id,
+    text: condense(p.title),
+    title: p.title,
+    url: p.url,
+    domain: p.domain,
+    thread: p.thread,
+    author: p.author || "",
+    created: p.created || 0,
+  });
+
+  const canServeMore = () => state.pool.length > 0 || !!state.after;
+
+  async function load({ more = false } = {}) {
+    if (state.loading) return;
+    state.loading = true;
+    if (!more) {
+      state.items = []; state.pool = []; state.seen = new Set(); state.after = null; state.sel = -1;
+      $("facts").innerHTML = ""; $("closeQ").hidden = true;
+      $("status").innerHTML = skeleton(Math.min(6, state.limit));
+    } else {
+      moreBtn.disabled = true; moreBtn.textContent = "Serving…";
+    }
+    try {
+      // Only go back to Reddit when the pool can't fill a whole ration.
+      if (!more || (state.pool.length < state.limit && state.after)) {
+        try {
+          const data = await getListing(more ? state.after : null);
+          const fresh = (data.posts || []).map(toFact).filter(f => !state.seen.has(f.id));
+          fresh.forEach(f => state.seen.add(f.id));
+          state.pool.push(...fresh);
+          state.after = fresh.length ? data.after : null;
+        } catch (err) {
+          if (!more || !state.pool.length) throw err;   // otherwise serve what's left
+          state.after = null;
+        }
+      }
+      const served = state.pool.splice(0, state.limit);
+      state.items.push(...served);
+      state.loadedAt = Date.now();
+      $("status").innerHTML = "";
+      if (!state.items.length) {
+        $("status").innerHTML = `<div class="state"><h3>No facts in this one</h3><p>Reddit sent back an empty list for “${SORTS[state.sort].label.toLowerCase()}”. Pick another source on the label.</p></div>`;
+      }
+      render();
+      if (more) toast(served.length ? `${served.length} more facts served` : "That's every fact in this source for now");
+      if (more && served.length) {
+        const first = factEls()[state.items.length - served.length];
+        if (first) first.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      }
+    } catch (err) {
+      if (more) {
+        const kind = err && err.kind;
+        toast(kind === "rate" ? "Reddit asked us to slow down. Try again in a minute."
+          : kind === "launcher" ? "TILFacts has closed. Double-click it to open it again."
+          : "Couldn't reach Reddit for more. Try again in a moment.");
+      }
+      else {
+        const kind = err && err.kind;
+        const msg = {
+          file: ["Open the TILFacts app instead", "This is just the page, and Reddit doesn't let a page opened like this read its posts. Double-click <b>TILFacts</b> (the app with the blue label icon) and the facts open in your browser."],
+          launcher: ["TILFacts has closed", "It closes by itself once no TILFacts tab is open. Double-click <b>TILFacts</b> to open it again."],
+          rate: ["Reddit asked us to slow down", "Reddit only lets anyone read so much without logging in. Wait a minute, then try again."],
+          reddit: ["Couldn't reach Reddit", `${err && err.detail ? esc(err.detail) + " " : ""}Check that you're online, then try again. Some work or school networks block Reddit; if so, it will work on another connection.`],
+        }[kind] || ["Couldn't load facts", "Something unexpected happened. Try again."];
+        $("status").innerHTML = `<div class="state">
+          <h3>${msg[0]}</h3>
+          <p>${msg[1]}</p>
+          ${kind === "file" ? "" : '<button class="btn primary" type="button" id="retry">Try again</button>'}</div>`;
+        if (kind === "file") return;
+        $("retry").addEventListener("click", () => load());
+      }
+    } finally {
+      state.loading = false;
+      moreBtn.disabled = false; moreBtn.textContent = "No, serve more";
+    }
+  }
+
+  function skeleton(n) {
+    return Array.from({ length: n }, () => `<div class="skel" aria-hidden="true"><i></i><i></i><i></i></div>`).join("") + `<span class="sr-only">Loading facts…</span>`;
+  }
+
+  /* ---------- rendering ---------- */
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const nfull = new Intl.NumberFormat();
+
+  function ago(sec) {
+    const s = Math.max(0, Date.now() / 1000 - sec);
+    if (s < 60) return "just now";
+    if (s < 3600) return Math.floor(s / 60) + " min ago";
+    if (s < 86400) return Math.floor(s / 3600) + " h ago";
+    if (s < 86400 * 30) { const d = Math.floor(s / 86400); return d + (d === 1 ? " day ago" : " days ago"); }
+    if (s < 86400 * 365) { const m = Math.floor(s / 86400 / 30); return m + (m === 1 ? " month ago" : " months ago"); }
+    const y = Math.floor(s / 86400 / 365); return y + (y === 1 ? " year ago" : " years ago");
+  }
+
+  function highlight(text, q) {
+    const safe = esc(text);
+    if (!q) return safe;
+    const re = new RegExp("(" + esc(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
+    return safe.replace(re, "<mark>$1</mark>");
+  }
+
+  const isSaved = (id) => state.saved.some(s => s.id === id);
+
+  const ICON = {
+    talk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
+    save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>',
+  };
+
+  function visible() {
+    const q = state.query.toLowerCase();
+    return q ? state.items.filter(f => f.text.toLowerCase().includes(q) || f.domain.toLowerCase().includes(q)) : state.items;
+  }
+
+  function render() {
+    const list = visible();
+    const q = state.query;
+    $("facts").innerHTML = list.map(f => `
+      <li class="fact" data-id="${esc(f.id)}" tabindex="-1">
+        <p class="fact-text" title="${esc(f.title)}">${highlight(f.text, q)}</p>
+        <div class="fact-meta">
+          <a class="src" href="${esc(f.url)}" target="_blank" rel="noopener" title="Open the source">${highlight(f.domain, q)}</a>
+          <span>${ago(f.created)}</span>
+          <span class="fact-actions">
+            <button class="act" type="button" data-act="save" aria-pressed="${isSaved(f.id)}">${ICON.save}${isSaved(f.id) ? "Saved" : "Save"}</button>
+            <button class="act" type="button" data-act="copy">${ICON.copy}Copy</button>
+            <a class="act" href="${esc(f.thread)}" target="_blank" rel="noopener" title="Read the comments on Reddit">${ICON.talk}Thread</a>
+          </span>
+        </div>
+      </li>`).join("");
+
+    if (state.items.length && !list.length) {
+      $("status").innerHTML = `<div class="state"><h3>No facts mention “${esc(q)}”</h3><p>Search looks only at the facts on this page. Clear it, or press “serve more” to load another ration.</p><button class="btn" type="button" id="clearQ">Clear search</button></div>`;
+      $("clearQ").addEventListener("click", () => { $("q").value = ""; state.query = ""; $("status").innerHTML = ""; render(); });
+    } else if (state.items.length && $("status").querySelector("#clearQ")) {
+      $("status").innerHTML = "";
+    }
+
+    $("closeQ").hidden = !state.items.length;
+    if (!finished) { moreBtn.hidden = !canServeMore(); doneBtn.hidden = false; }
+    if (state.sel >= list.length) state.sel = list.length - 1;
+    paintSelection(false);
+    renderLabel();
+    $("feedTitle").textContent = SORTS[state.sort].label + (q ? ` matching “${q}”` : "");
+    $("when").textContent = state.loadedAt ? "Served " + new Date(state.loadedAt).toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }) : "";
+  }
+
+  function renderLabel() {
+    const items = state.items;
+    const n = items.length;
+    const words = items.reduce((a, f) => a + f.text.split(/\s+/).length, 0);
+    const pct = (k) => n ? Math.round(k / n * 100) + "%" : "0%";
+    $("nfServings").textContent = `${n} serving${n === 1 ? "" : "s"} in this ration`;
+    $("nfFacts").textContent = n;
+    $("nfMinutes").textContent = Math.max(n ? 1 : 0, Math.round(words / 230)) + " min";
+    $("nfWords").textContent = nfull.format(words);
+    $("nfAvg").textContent = (n ? Math.round(words / n) : 0) + " per fact";
+    const people = new Set(items.map(f => f.author).filter(Boolean)).size;
+    $("nfVotes").textContent = people === 1 ? "1 person" : nfull.format(people) + " people";
+    $("nfSavedPct").textContent = pct(items.filter(f => isSaved(f.id)).length);
+    $("nfWikiPct").textContent = pct(items.filter(f => /wikipedia\.org$/.test(f.domain)).length);
+    $("nfNumPct").textContent = pct(items.filter(f => /\d/.test(f.text)).length);
+    const newest = items.reduce((m, f) => Math.max(m, f.created), 0);
+    $("nfFresh").textContent = newest ? ago(newest) : "–";
+
+    const counts = {};
+    items.forEach(f => { const d = f.domain.replace(/^(en|m|en\.m)\./, ""); counts[d] = (counts[d] || 0) + 1; });
+    const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const top = ranked.slice(0, 8).map(([d, c]) => `${esc(d)} (${Math.round(c / n * 100)}%)`);
+    const rest = ranked.length - 8;
+    $("nfIngredients").innerHTML = n
+      ? `<b>Ingredients:</b> ${top.join(", ")}${rest > 0 ? `, and ${rest} other source${rest === 1 ? "" : "s"}` : ""}. <b>Contains:</b> trivia, the occasional pun in the comments.`
+      : `<b>Ingredients:</b> waiting for the first ration.`;
+  }
+
+  /* ---------- selection + actions ---------- */
+  function factEls() { return Array.from($("facts").children); }
+  function paintSelection(scroll = true) {
+    factEls().forEach((el, i) => el.classList.toggle("is-selected", i === state.sel));
+    const el = factEls()[state.sel];
+    if (el && scroll) {
+      el.focus({ preventScroll: true });
+      el.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
+  }
+  function move(d) {
+    const n = visible().length; if (!n) return;
+    state.sel = state.sel < 0 ? (d > 0 ? 0 : n - 1) : Math.min(n - 1, Math.max(0, state.sel + d));
+    paintSelection();
+  }
+  const current = () => visible()[state.sel];
+  const byId = (id) => state.items.find(f => f.id === id) || state.saved.find(f => f.id === id);
+
+  function toggleSave(f) {
+    if (!f) return;
+    if (isSaved(f.id)) { state.saved = state.saved.filter(s => s.id !== f.id); toast("Removed from Saved"); }
+    else { state.saved.unshift({ id: f.id, text: f.text, title: f.title, url: f.url, domain: f.domain, thread: f.thread, created: f.created, savedAt: Date.now() }); toast("Saved"); }
+    store.set("saved", state.saved);
+    syncSaved();
+  }
+  function syncSaved() {
+    $("savedCount").textContent = state.saved.length;
+    factEls().forEach(el => {
+      const b = el.querySelector('[data-act="save"]'); const on = isSaved(el.dataset.id);
+      b.setAttribute("aria-pressed", on); b.lastChild.textContent = on ? "Saved" : "Save";
+    });
+    renderLabel();
+    if ($("drawer").open) renderSaved();
+  }
+
+  async function copyText(text, msg = "Copied") {
+    try { await navigator.clipboard.writeText(text); }
+    catch {
+      const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch {}
+      ta.remove();
+    }
+    toast(msg);
+  }
+  const factLine = (f) => `${f.text} (${f.url})`;
+
+  $("facts").addEventListener("click", (e) => {
+    const li = e.target.closest(".fact"); if (!li) return;
+    const idx = factEls().indexOf(li);
+    if (idx !== state.sel) { state.sel = idx; paintSelection(false); }
+    const btn = e.target.closest("[data-act]"); if (!btn) return;
+    const f = byId(li.dataset.id);
+    if (btn.dataset.act === "save") toggleSave(f);
+    if (btn.dataset.act === "copy") copyText(factLine(f));
+  });
+
+  /* ---------- saved drawer ---------- */
+  function renderSaved() {
+    const s = state.saved;
+    $("savedEmpty").hidden = !!s.length; $("savedFoot").hidden = !s.length; $("savedList").hidden = !s.length;
+    $("savedList").innerHTML = s.map(f => `
+      <li data-id="${esc(f.id)}">
+        <p>${esc(f.text)}</p>
+        <div class="row">
+          <a class="src" href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.domain)}</a>
+          <button class="act" type="button" data-act="copy">Copy</button>
+          <a class="act" href="${esc(f.thread)}" target="_blank" rel="noopener">Thread</a>
+          <button class="act" type="button" data-act="remove">Remove</button>
+        </div>
+      </li>`).join("");
+  }
+  $("savedList").addEventListener("click", (e) => {
+    const li = e.target.closest("li"); const btn = e.target.closest("[data-act]"); if (!li || !btn) return;
+    const f = state.saved.find(x => x.id === li.dataset.id); if (!f) return;
+    if (btn.dataset.act === "copy") copyText(factLine(f));
+    if (btn.dataset.act === "remove") toggleSave(f);
+  });
+  $("savedBtn").addEventListener("click", () => { renderSaved(); $("drawer").showModal(); });
+  $("drawerClose").addEventListener("click", () => $("drawer").close());
+  $("drawer").addEventListener("click", (e) => { if (e.target === $("drawer")) $("drawer").close(); });
+  $("copyAll").addEventListener("click", () => copyText(state.saved.map(f => "• " + factLine(f)).join("\n"), `Copied ${state.saved.length} facts`));
+  $("clearAll").addEventListener("click", () => {
+    const keep = state.saved; state.saved = []; store.set("saved", []); syncSaved();
+    toastUndo("Removed all saved facts", () => { state.saved = keep; store.set("saved", keep); syncSaved(); });
+  });
+
+  /* ---------- toast ---------- */
+  let toastTimer;
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.classList.add("show"); t.style.pointerEvents = "none";
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 1900);
+  }
+  function toastUndo(msg, undo) {
+    const t = $("toast");
+    t.innerHTML = `${esc(msg)} &nbsp;<button class="btn" type="button" style="height:28px;color:inherit;border-color:currentColor">Undo</button>`;
+    t.style.pointerEvents = "auto"; t.classList.add("show");
+    t.querySelector("button").onclick = () => { undo(); t.classList.remove("show"); };
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.classList.remove("show"); t.style.pointerEvents = "none"; }, 5000);
+  }
+
+  /* ---------- checking in with the app ---------- */
+  // The app quits about 10 seconds after the last TILFacts tab closes.
+  const TAB = Math.random().toString(36).slice(2, 14).padEnd(8, "0");
+  const ping = () => { if (SERVED) fetch("/api/ping?tab=" + TAB, { cache: "no-store" }).catch(() => {}); };
+  const heartbeat = SERVED ? setInterval(ping, 30000) : 0;
+  if (SERVED) {
+    addEventListener("pagehide", () => navigator.sendBeacon("/api/bye?tab=" + TAB));
+    addEventListener("pageshow", (e) => { if (e.persisted) ping(); });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) ping(); });
+  }
+
+  /* ---------- the 2015 prompt ---------- */
+  let finished = false;
+  moreBtn.addEventListener("click", () => load({ more: true }));
+  doneBtn.addEventListener("click", async () => {
+    finished = true;
+    moreBtn.hidden = true; doneBtn.hidden = true;
+    // Served by the TILFacts app: "Yes" really closes it, like in 2015.
+    let closed = false;
+    if (SERVED) {
+      try { closed = (await fetch("/api/quit", { method: "POST" })).ok; } catch {}
+    }
+    if (closed) {
+      clearInterval(heartbeat);
+      $("closeText").textContent = "TILFacts is closed. You can close this tab, and double-click TILFacts whenever you want more facts.";
+    } else {
+      $("closeText").textContent = "Ration finished. New facts are posted all day.";
+      againBtn.hidden = false; againBtn.focus();
+    }
+  });
+  againBtn.addEventListener("click", () => { resetClose(); window.scrollTo({ top: 0 }); load(); });
+  function resetClose() {
+    finished = false;
+    $("closeText").textContent = "Would you like to close?";
+    againBtn.hidden = true; doneBtn.hidden = false; moreBtn.hidden = !canServeMore();
+  }
+
+  /* ---------- settings ---------- */
+  function applyTheme(id) {
+    state.theme = THEMES.includes(id) ? id : "auto";
+    if (state.theme === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", state.theme);
+    $("theme").value = state.theme;
+    store.set("theme", state.theme);
+  }
+  $("theme").addEventListener("change", (e) => applyTheme(e.target.value));
+  $("sort").value = state.sort; $("limit").value = String(state.limit);
+  $("sort").addEventListener("change", (e) => { state.sort = e.target.value; store.set("sort", state.sort); resetClose(); load(); });
+  $("limit").addEventListener("change", (e) => { state.limit = +e.target.value; store.set("limit", state.limit); resetClose(); load(); });
+
+  let qTimer;
+  $("q").addEventListener("input", (e) => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { state.query = e.target.value.trim(); state.sel = -1; if (!$("status").querySelector(".skel")) $("status").innerHTML = ""; render(); }, 120);
+  });
+
+  // mobile: fold the long part of the label
+  const mq = matchMedia("(max-width: 860px)");
+  function syncFold() {
+    const folded = mq.matches && store.get("labelFolded", true);
+    $("nf").classList.toggle("collapsed", folded);
+    $("nfToggle").setAttribute("aria-expanded", String(!folded));
+    $("nfToggle").firstElementChild.textContent = folded ? "Show the full label" : "Hide the full label";
+    $("nfToggle").lastElementChild.textContent = folded ? "+" : "–";
+  }
+  $("nfToggle").addEventListener("click", () => { store.set("labelFolded", !$("nf").classList.contains("collapsed")); syncFold(); });
+  mq.addEventListener("change", syncFold);
+
+  /* ---------- keyboard ---------- */
+  document.addEventListener("keydown", (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (e.key === "Escape" && e.target === $("q")) { $("q").value = ""; $("q").dispatchEvent(new Event("input")); $("q").blur(); return; }
+    if (tag === "input" || tag === "select" || tag === "textarea" || $("drawer").open) return;
+    const k = e.key.toLowerCase();
+    const f = current();
+    switch (k) {
+      case "j": case "arrowdown": e.preventDefault(); move(1); break;
+      case "k": case "arrowup": e.preventDefault(); move(-1); break;
+      case "s": toggleSave(f); break;
+      case "o": if (f) window.open(f.url, "_blank", "noopener"); break;
+      case "c": if (f) window.open(f.thread, "_blank", "noopener"); break;
+      case "y": if (f) copyText(factLine(f)); break;
+      case "m": if (canServeMore()) load({ more: true }); break;
+      case "r": resetClose(); load(); break;
+      case "/": e.preventDefault(); $("q").focus(); break;
+      case "t": applyTheme(THEMES[(THEMES.indexOf(state.theme) + 1) % THEMES.length]); toast("Theme: " + $("theme").selectedOptions[0].textContent); break;
+      default: return;
+    }
+  });
+
+  // Keep "Nutrition Facts" on one line at the label's width, whatever font loads.
+  function fitTitle() {
+    const h = document.querySelector(".nf-title"); if (!h) return;
+    h.style.fontSize = "";
+    let size = parseFloat(getComputedStyle(h).fontSize);
+    while (h.scrollWidth > h.clientWidth && size > 20) { size -= 1; h.style.fontSize = size + "px"; }
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTitle);
+  addEventListener("resize", fitTitle);
+  new MutationObserver(fitTitle).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  /* ---------- start ---------- */
+  ping();
+  applyTheme(state.theme);
+  syncFold();
+  fitTitle();
+  $("savedCount").textContent = state.saved.length;
+  load();
+})();
+</script>
+</body>
+</html>
