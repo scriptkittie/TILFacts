@@ -4,6 +4,12 @@ Condenses TIL into soylent TIL: the newest posts from Reddit's
 [r/todayilearned](https://www.reddit.com/r/todayilearned/), with the "TIL that..."
 taken out, so all that's left is the fact.
 
+TILFacts is a little old project, first written on June 30, 2015 as a Python
+command-line script that printed the day's TIL posts in a terminal and asked
+"Would you like to close?" It has since had some love: it's now a small app that
+opens the facts in your browser, with a nutrition-facts label for each batch,
+themes and a saved list. It still asks the same question at the end.
+
 **[Download TILFacts](https://github.com/scriptkittie/TILFacts/releases/latest)**
 
 ## How to use it
@@ -48,9 +54,3 @@ the source before you repeat one at dinner.
 - **"Couldn't reach Reddit"**: check your internet connection. Some work and school
   networks block Reddit.
 - **"TILFacts has closed"**: double-click TILFacts again.
-
-## About
-
-TILFacts was first written on June 30, 2015 as a Python script that printed the
-day's TIL posts in a terminal and asked "Would you like to close?" It's now a small
-app, and it still asks.
